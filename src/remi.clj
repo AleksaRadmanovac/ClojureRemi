@@ -4,10 +4,7 @@
 (defrecord Rank [value number])
 
 (def ranks
-  (map
-    #(Rank. %1 %2)
-    [2 3 4 5 6 7 8 9 11 12 13 14 15]
-    (range 2 15)))
+    (range 2 15))
 
 (def suits #{:clubs :diamonds :hearts :spades})
 
@@ -74,10 +71,9 @@
     (swap! middle-pile conj card)))
 
 (draw-from-middle (get-player players 4))
-(drop-card (get-player players 4) 14)
+(drop-card (get-player players 4) 12)
 
 (count @middle-pile)
-
 
 
 (defn all-same-suit?
@@ -89,9 +85,9 @@
 (defn same-cards
   [cards]
   (let [sorted-cards (sort-by :type cards)]
-    (let [last-value (:value (:rank (last sorted-cards)))]
+    (let [last-value  (:rank (last sorted-cards))]
       (if
-        (every? #(or (= (:value (:rank %)) last-value) (= :joker (:type %)))  sorted-cards)
+        (every? #(or (= (:rank %) last-value) (= :joker (:type %)))  sorted-cards)
         (* (count sorted-cards) last-value)
         0))))
 
@@ -111,8 +107,8 @@
 
 (defn update-first-card-if-ace
   [group]
-  (if (= (:value (:rank (first group))) 14)
-    (let [updated-card (assoc-in (first group) [:rank :value] 1)
+  (if (= (:rank (first group)) 14)
+    (let [updated-card (assoc-in (first group) [:rank] 1)
           updated-group (cons updated-card (rest group))]
       updated-group)
     group))
@@ -132,19 +128,19 @@
   [group]
   (loop [sum 0 first-card (first group) remaining (rest group)]
     (if (empty? remaining)
-      (+ sum (:value (:rank first-card)))
+      (+ sum (:rank first-card))
       (if
         (= (:type first-card) :joker)
         (recur
           (let [first-standard (find-first-standard remaining)]
-            (+ sum (- (:value (:rank first-standard)) (+ 1 (index-of remaining first-standard)))))
+            (+ sum (- (:rank first-standard) (+ 1 (index-of remaining first-standard)))))
           (first remaining)
           (rest remaining))
 
-        (if (= (+ (:value (:rank first-card))  1) (:value (:rank (first remaining))))
-          (recur (+ sum (:value (:rank first-card)))  (first remaining) (rest remaining))
+        (if (= (+ (:rank first-card)  1) (:rank (first remaining)))
+          (recur (+ sum (:rank first-card))  (first remaining) (rest remaining))
           (if (= :joker (:type (first remaining)))
-            (recur (+ sum (:value (:rank first-card))) {:rank {:value (+ (:value (:rank first-card))  1)}, :suit (:suit first-card), :type :standard} (rest remaining))
+            (recur (+ sum (:rank first-card)) {:rank (+ (:rank first-card)  1), :suit (:suit first-card), :type :standard} (rest remaining))
             0))))))
 
 (defn in-a-row-same-suit
@@ -164,7 +160,7 @@
 (defn sort-hand [hand]
   (let [suit-order {:clubs 0, :diamonds 1, :hearts 2, :spades 3}]
     (sort-by (fn [card]
-               [(suit-order (:suit card)) (:number (:rank card))])
+               [(suit-order (:suit card)) (:rank card)])
              hand)))
 
 
@@ -180,32 +176,32 @@
 
 (defn find-same-rank-different-suits
   [hand reference-card]
-  (let [reference-rank-number (:number (:rank reference-card))
+  (let [reference-rank-number (:rank reference-card)
         reference-suit (:suit reference-card)]
     (->> hand
-         (filter #(and (= reference-rank-number (:number (:rank %)))
+         (filter #(and (= reference-rank-number (:rank %))
                        (not= reference-suit (:suit %))))
          (into #{})))) ; Converting the set to a sequence
 
 (defn find-higher-cards
   [sorted-cards reference-card]
-  (let [ref-number (:number (:rank reference-card))]
-    (drop-while #(<= (:number (:rank %)) ref-number) sorted-cards)))
+  (let [ref-number (:rank reference-card)]
+    (drop-while #(<= (:rank %) ref-number) sorted-cards)))
 
 (defn find-lower-cards
   [sorted-cards reference-card]
-  (let [ref-number (:number (:rank reference-card))
-        sorted-cards-with-ace (sort-hand (map #(if (= 14 (:number (:rank %)))
-                                                 (assoc % :rank (assoc (:rank %) :number 1))
+  (let [ref-number (:rank reference-card)
+        sorted-cards-with-ace (sort-hand (map #(if (= 14 (:rank %))
+                                                 (assoc % :rank 1)
                                                  %)
                                               sorted-cards))]
-    (drop-while #(>= (:number (:rank %)) ref-number) (reverse sorted-cards-with-ace))))
+    (drop-while #(>= (:rank %) ref-number) (reverse sorted-cards-with-ace))))
 
 (defn build-asc-sequence
   [higher-cards reference-card]
   (loop [reference-list [reference-card] reference reference-card remaining-cards higher-cards]
     (if
-      (= (+ 1 (:number (:rank reference))) (:number (:rank (first remaining-cards))))
+      (= (+ 1 (:rank reference)) (:rank (first remaining-cards)))
       (recur (conj reference-list (first remaining-cards)) (first remaining-cards) (rest remaining-cards))
       reference-list)))
 
@@ -215,26 +211,26 @@
          reference reference-card        ; Start with the reference card
          remaining-cards lower-cards]    ; Consider only the cards that are potentially lower
     (if (and (seq remaining-cards)  ; Check if there are any remaining cards
-             (= (- (:number (:rank reference)) 1)
-                (:number (:rank (first remaining-cards)))))  ; Compare the rank number to find a descending match
+             (= (- (:rank reference) 1)
+                (:rank (first remaining-cards))))  ; Compare the rank number to find a descending match
       (recur (conj reference-list (first remaining-cards))  ; Add matching card to the list
              (first remaining-cards)  ; Update the reference card to the new match
              (rest remaining-cards))  ; Remove the used card from the remaining list
       reference-list)))
 
-(:number (:rank #remi.Card{:rank #remi.Rank{:value 9, :number 14}, :suit :spades, :type :standard}))
+
 
 
 (defn find-sequence-cards
   [hand reference-card]
   (let [ref-suit (:suit reference-card)
-        ref-number (:number (:rank reference-card))
+        ref-number (:rank reference-card)
         all-same-suit (filter #(= (:suit %) ref-suit) hand)
-        sorted-cards (sort-by #(:number (:rank %)) all-same-suit)
+        sorted-cards (sort-by #(:rank %) all-same-suit)
         higher-cards (find-higher-cards sorted-cards reference-card)
         lower-cards (find-lower-cards sorted-cards reference-card)]
     (if (= 14 ref-number)
-      (let [asc-seq (build-asc-sequence sorted-cards (assoc reference-card :rank (assoc (:rank reference-card) :number 1)))
+      (let [asc-seq (build-asc-sequence sorted-cards (assoc reference-card :rank 1))
             desc-seq (build-desc-sequence (reverse sorted-cards) reference-card)]
         (if (> (count desc-seq) (count asc-seq)) desc-seq asc-seq)
         )
@@ -252,14 +248,14 @@
 
 (defn check-bottom-of-sequence-for-potential-card
   [sequence]
-  (let [potential-number (- (:number (:rank (first sequence))) 1)]
+  (let [potential-number (- (:rank (first sequence)) 1)]
     (if
       (not= 0 potential-number)
       (->Card potential-number (:suit (first sequence)) :standard))))
 
 (defn check-top-of-sequence-for-potential-card
   [sequence]
-  (let [potential-number (+ (:number (:rank (last sequence))) 1)]
+  (let [potential-number (+ (:rank (last sequence)) 1)]
     (if
       (not= 14 potential-number)
       (->Card potential-number (:suit (first sequence)) :standard))))
@@ -271,7 +267,7 @@
   (let [present-suits (->> same-rank-pack
                            (map :suit)
                            set)]
-    (map #(->Card (:number (:rank (first same-rank-pack))) % :standard) (clojure.set/difference all-suits present-suits))
+    (map #(->Card (:rank (first same-rank-pack)) % :standard) (clojure.set/difference all-suits present-suits))
     ))
 
 (defn find-potential-useful-cards
@@ -287,48 +283,250 @@
         (check-top-of-sequence-for-potential-card longest-sequence))
       (let
         [same-rank-pack (cons card (find-same-rank-different-suits hand card))]
-        (concat
-          (conj
-            (conj
-              result
-              (check-bottom-of-sequence-for-potential-card longest-sequence))
-            (check-top-of-sequence-for-potential-card longest-sequence))
-          (check-same-rank-pack-for-potential-card same-rank-pack))))))
+        (vec (concat
+               (conj
+                 (conj
+                   result
+                   (check-bottom-of-sequence-for-potential-card longest-sequence))
+                 (check-top-of-sequence-for-potential-card longest-sequence))
+               (check-same-rank-pack-for-potential-card same-rank-pack)))))))
+
+(conj [] 1)
+(concat [1] [2])
+
+(defn ordered-vector-intersection
+  [vec1 vec2]
+  (let [set2 (set vec2)]
+    (vec (filter #(set2 %) vec1))))
+
+
+
+(defn find-useful-cards
+  [hand card remaining-cards]
+  (let [potential-useful-cards (find-potential-useful-cards hand card)]
+    (ordered-vector-intersection potential-useful-cards remaining-cards)))
+
+(defn vector-difference
+  [vec1 vec2]
+  (let [to-remove (frequencies vec2)  ; Creates a map of elements to their counts in vec2
+        result (reduce (fn [[res counts] item]  ; Destructure the accumulator into res and counts
+                         (if (and (> (get counts item 0) 0)  ; If item should be removed
+                                  (contains? counts item))
+                           [res (update counts item dec)]  ; Decrement count in map, keep result the same
+                           [(conj res item) counts]))  ; Else, add item to result
+                       [[] to-remove]  ; Initial accumulator: empty result vector and to-remove map
+                       vec1)]
+    (first result)))
+
+
+(defn count-card-occurrences
+  [cards card-to-count]
+  (count (filter #(= % card-to-count) cards)))
 
 (defn find-best-pack-for-each-potential-card
-  [hand card]
-  (let [potential-useful-cards (find-potential-useful-cards hand card)]
-    (map #(conj hand %) potential-useful-cards)))
+  [hand card middle-pile]
+  (let [remaining-cards (vector-difference (vector-difference (create-deck 4) middle-pile) hand)
+        useful-cards (find-useful-cards hand card remaining-cards)]
+    (map *
+         (vec (map #(count (find-best-pack (conj hand %) card)) useful-cards))
+         (vec (map #(* (count-card-occurrences remaining-cards %) (/ 1 (count remaining-cards))) useful-cards)))))
+
+(map *
+     (vec (map #(count (find-best-pack (conj [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                                #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                                #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                                #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                                #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                                #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                                #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                                #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                                #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                                #remi.Card{:rank 14, :suit :clubs, :type :standard}] %)
+                                         #remi.Card{:rank 10, :suit :spades, :type :standard}))
+                 [#remi.Card{:rank 9, :suit :spades, :type :standard}
+                  #remi.Card{:rank 11, :suit :spades, :type :standard}
+                  #remi.Card{:rank 10, :suit :clubs, :type :standard}]))
+     (vec (map #(* (count-card-occurrences [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                            #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                            #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                            #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                            #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                            #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                            #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                            #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                            #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                            #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                            #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                            #remi.Card{:rank 14, :suit :clubs, :type :standard}]
+                                           %)
+                   (/ 1 (count [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                #remi.Card{:rank 14, :suit :clubs, :type :standard}]))) [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                                                                         #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                                                         #remi.Card{:rank 7, :suit :diamonds, :type :standard}]))
+     )
+
+
+(map * (1 2 3) (1 2 3))
+
+(vector-difference (vector-difference (create-deck 4) []) [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                                           #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                                           #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                                           #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 14, :suit :clubs, :type :standard}])
+
+(ordered-vector-intersection
+  [#remi.Card{:rank 9, :suit :spades, :type :standard}
+   #remi.Card{:rank 11, :suit :spades, :type :standard}
+   #remi.Card{:rank 10, :suit :clubs, :type :standard}]
+  (vector-difference (vector-difference (create-deck 4) []) [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                                             #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                                             #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                                             #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 14, :suit :clubs, :type :standard}]))
+//Remaining cards
+(vector-difference (vector-difference (create-deck 4) []) [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                                           #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                                           #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                                           #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                                           #remi.Card{:rank 14, :suit :clubs, :type :standard}])
+
+//useful-cards
+(find-useful-cards [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                    #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                    #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                    #remi.Card{:rank 10, :suit :spades, :type :standard}
+                    #remi.Card{:rank 8, :suit :spades, :type :standard}
+                    #remi.Card{:rank 7, :suit :spades, :type :standard}
+                    #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                    #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                    #remi.Card{:rank 4, :suit :spades, :type :standard}
+                    #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                    #remi.Card{:rank 5, :suit :spades, :type :standard}
+                    #remi.Card{:rank 14, :suit :clubs, :type :standard}]
+                   #remi.Card{:rank 10, :suit :spades, :type :standard}
+                   (vector-difference (vector-difference (create-deck 4) []) [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                                                              #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                                              #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                                              #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                                                              #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                                                              #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                                                              #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                                                              #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                                                              #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                                                              #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                                                              #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                                                              #remi.Card{:rank 14, :suit :clubs, :type :standard}]))
+
+(ordered-vector-intersection
+  (find-potential-useful-cards [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                #remi.Card{:rank 14, :suit :clubs, :type :standard}]
+                               #remi.Card{:rank 10, :suit :spades, :type :standard})
+  (vector-difference (vector-difference (create-deck 4) []) [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 8, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 7, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                                                             #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                                                             #remi.Card{:rank 4, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                                                             #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                                             #remi.Card{:rank 14, :suit :clubs, :type :standard}]))
+
+
+
 
 (- (:number (:rank (first [#remi.Card{:rank #remi.Rank{:value 9, :number 2}, :suit :spades, :type :standard}
                            #remi.Card{:rank #remi.Rank{:value 9, :number 3}, :suit :spades, :type :standard}
                            #remi.Card{:rank #remi.Rank{:value 9, :number 4}, :suit :spades, :type :standard}]))) 1)
 
-(check-same-rank-pack-for-potential-card [#remi.Card{:rank #remi.Rank{:value 9, :number 5}, :suit :diamonds, :type :standard}
-                                          #remi.Card{:rank #remi.Rank{:value 9, :number 5}, :suit :clubs, :type :standard}
-                                          #remi.Card{:rank #remi.Rank{:value 9, :number 5}, :suit :spades, :type :standard}
-                                          #remi.Card{:rank #remi.Rank{:value 9, :number 5}, :suit :hearts, :type :standard}])
+(check-same-rank-pack-for-potential-card [#remi.Card{:rank 5, :suit :diamonds, :type :standard}
+                                          #remi.Card{:rank 5, :suit :spades, :type :standard}
+                                          #remi.Card{:rank 5, :suit :hearts, :type :standard}])
 
-(find-potential-useful-cards [#remi.Card{:rank #remi.Rank{:value 9, :number 7}, :suit :diamonds, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 10}, :suit :hearts, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 10}, :suit :hearts, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 10}, :suit :spades, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 2}, :suit :spades, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 3}, :suit :spades, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 2}, :suit :diamonds, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 14}, :suit :hearts, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 4}, :suit :spades, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 11}, :suit :diamonds, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 5}, :suit :spades, :type :standard}
-                              #remi.Card{:rank #remi.Rank{:value 9, :number 14}, :suit :clubs, :type :standard}]
-                             #remi.Card{:rank #remi.Rank{:value 9, :number 10}, :suit :spades, :type :standard})
+(find-useful-cards [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                              #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                              #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                              #remi.Card{:rank 10, :suit :spades, :type :standard}
+                              #remi.Card{:rank 8, :suit :spades, :type :standard}
+                              #remi.Card{:rank 7, :suit :spades, :type :standard}
+                              #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                              #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                              #remi.Card{:rank 4, :suit :spades, :type :standard}
+                              #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                              #remi.Card{:rank 5, :suit :spades, :type :standard}
+                              #remi.Card{:rank 14, :suit :clubs, :type :standard}]
+                             #remi.Card{:rank 10, :suit :spades, :type :standard}
+                              [])
 
 
-(find-lower-cards [#remi.Card{:rank #remi.Rank{:value 9, :number 2}, :suit :diamonds, :type :standard}
+
+
+(find-best-pack-for-each-potential-card [#remi.Card{:rank 7, :suit :diamonds, :type :standard}
+                              #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                              #remi.Card{:rank 10, :suit :hearts, :type :standard}
+                              #remi.Card{:rank 10, :suit :spades, :type :standard}
+                              #remi.Card{:rank 8, :suit :spades, :type :standard}
+                              #remi.Card{:rank 7, :suit :spades, :type :standard}
+                              #remi.Card{:rank 2, :suit :diamonds, :type :standard}
+                              #remi.Card{:rank 14, :suit :hearts, :type :standard}
+                              #remi.Card{:rank 4, :suit :spades, :type :standard}
+                              #remi.Card{:rank 10, :suit :diamonds, :type :standard}
+                              #remi.Card{:rank 5, :suit :spades, :type :standard}
+                              #remi.Card{:rank 14, :suit :clubs, :type :standard}]
+                             #remi.Card{:rank 10, :suit :spades, :type :standard}
+                                        [#remi.Card{:rank 10, :suit :diamonds, :type :standard}])
+
+
+(count-card-occurrences [#remi.Card{:rank #remi.Rank{:value 9, :number 2}, :suit :diamonds, :type :standard}
                    #remi.Card{:rank #remi.Rank{:value 9, :number 3}, :suit :diamonds, :type :standard}
-                   #remi.Card{:rank #remi.Rank{:value 9, :number 10}, :suit :diamonds, :type :standard}
+                   #remi.Card{:rank #remi.Rank{:value 9, :number 2}, :suit :diamonds, :type :standard}
                    #remi.Card{:rank #remi.Rank{:value 9, :number 14}, :suit :diamonds, :type :standard}]
-                  #remi.Card{:rank #remi.Rank{:value 9, :number 4}, :suit :diamonds, :type :standard})
+                  #remi.Card{:rank #remi.Rank{:value 9, :number 2}, :suit :diamonds, :type :standard})
 
 (build-desc-sequence [#remi.Card{:rank #remi.Rank{:value 9, :number 14}, :suit :diamonds, :type :standard}
                       #remi.Card{:rank #remi.Rank{:value 9, :number 1}, :suit :diamonds, :type :standard}
