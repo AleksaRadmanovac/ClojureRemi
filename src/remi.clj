@@ -232,44 +232,50 @@
          (into #{}))))
 
 (defn find-higher-cards
+  "returns all cards of passed sorted cards that are higher rank than reference card"
   [sorted-cards reference-card]
   (let [ref-number (:rank reference-card)]
     (drop-while #(<= (:rank %) ref-number) sorted-cards)))
 
 (defn find-lower-cards
+  "returns all cards of passed sorted cards that are lower rank than reference card"
   [sorted-cards reference-card]
   (let [ref-number (:rank reference-card)
-        sorted-cards-with-ace (sort-hand (map #(if (= 14 (:rank %))
-                                                 (assoc % :rank 1)
-                                                 %)
-                                              sorted-cards))]
+        sorted-cards-with-ace (sort-hand (map #(if (= 14 (:rank %)) (assoc % :rank 1) %) sorted-cards))]
     (drop-while #(>= (:rank %) ref-number) (reverse sorted-cards-with-ace))))
 
 (defn build-asc-sequence
+  "returns longest ascending sequence where first card is reference card and remaining cards are taken from passed higher cards"
   [higher-cards reference-card]
-  (loop [reference-list [reference-card] reference reference-card remaining-cards higher-cards]
+  (loop [reference-list [reference-card]
+         reference reference-card
+         remaining-cards higher-cards]
     (if
       (= (+ 1 (:rank reference)) (:rank (first remaining-cards)))
       (recur (conj reference-list (first remaining-cards)) (first remaining-cards) (rest remaining-cards))
       reference-list)))
 
 (defn build-desc-sequence
+  "returns longest descending sequence where first card is reference card and remaining cards are taken from passed lower cards"
   [lower-cards reference-card]
-  (loop [reference-list [reference-card]                    ; Initialize with the reference card
-         reference reference-card                           ; Start with the reference card
-         remaining-cards lower-cards]                       ; Consider only the cards that are potentially lower
-    (if (and (seq remaining-cards)                          ; Check if there are any remaining cards
-             (= (- (:rank reference) 1)
-                (:rank (first remaining-cards))))           ; Compare the rank number to find a descending match
-      (recur (conj reference-list (first remaining-cards))  ; Add matching card to the list
-             (first remaining-cards)                        ; Update the reference card to the new match
-             (rest remaining-cards))                        ; Remove the used card from the remaining list
+  (loop [reference-list [reference-card]
+         reference reference-card
+         remaining-cards lower-cards]
+    (if (and
+          (seq remaining-cards)
+          (= (- (:rank reference) 1)
+             (:rank (first remaining-cards))))
+      (recur
+        (conj reference-list (first remaining-cards))
+        (first remaining-cards)
+        (rest remaining-cards))
       reference-list)))
 
 
 
 
 (defn find-sequence-cards
+  "returns longest sequence that can be formed with passed reference card and other cards in passed hand"
   [hand reference-card]
   (let [ref-suit (:suit reference-card)
         ref-number (:rank reference-card)
@@ -285,23 +291,8 @@
         (reverse (rest (build-desc-sequence lower-cards reference-card)))
         (build-asc-sequence higher-cards reference-card)))))
 
-(filter #(= (:suit %) :hearts) [#remi.Card{:rank 10, :suit :diamonds, :type :standard}
-                                #remi.Card{:rank 11, :suit :diamonds, :type :standard}
-                                #remi.Card{:rank 12, :suit :diamonds, :type :standard}
-                                #remi.Card{:rank 5, :suit :clubs, :type :standard}
-                                #remi.Card{:rank 5, :suit :hearts, :type :standard}
-                                #remi.Card{:rank 13, :suit :spades, :type :standard}
-                                #remi.Card{:rank 13, :suit :hearts, :type :standard}
-                                #remi.Card{:rank 14, :suit :hearts, :type :standard}
-                                #remi.Card{:rank 8, :suit :hearts, :type :standard}
-                                #remi.Card{:rank 7, :suit :hearts, :type :standard}
-                                #remi.Card{:rank 7, :suit :clubs, :type :standard}
-                                #remi.Card{:rank 13, :suit :clubs, :type :standard}
-                                #remi.Card{:rank 6, :suit :diamonds, :type :standard}
-                                #remi.Card{:rank 10, :suit :clubs, :type :standard}])
-
-
 (defn find-best-pack-for-a-card
+  "returns highest value remi pack for passed card and passed hand"
   [hand card]
   (let [sorted-hand (sort-hand hand)
         same-rank-pack (cons card (find-same-rank-different-suits hand card))
@@ -309,6 +300,7 @@
     (if (> (count sequence-pack) (count same-rank-pack)) sequence-pack same-rank-pack)))
 
 (defn check-bottom-of-sequence-for-potential-card
+  "returns card that could lengthen sequence from bottom part of a sequence"
   [sequence]
   (let [potential-number (- (:rank (first sequence)) 1)]
     (if
@@ -316,6 +308,7 @@
       (->Card potential-number (:suit (first sequence)) :standard))))
 
 (defn check-top-of-sequence-for-potential-card
+  "returns card that could lengthen sequence from top part of a sequence"
   [sequence]
   (let [potential-number (+ (:rank (last sequence)) 1)]
     (if
@@ -325,19 +318,19 @@
 (def all-suits #{:clubs :diamonds :hearts :spades})
 
 (defn check-same-rank-pack-for-potential-card
+  "returns all cards that could lengthen passed same rank pack"
   [same-rank-pack]
-  (let [present-suits (->> same-rank-pack
-                           (map :suit)
-                           set)]
-    (map #(->Card (:rank (first same-rank-pack)) % :standard) (clojure.set/difference all-suits present-suits))
-    ))
+  (let [present-suits (->> same-rank-pack (map :suit) set)]
+    (map #(->Card (:rank (first same-rank-pack)) % :standard) (clojure.set/difference all-suits present-suits))))
 
 (defn find-potential-useful-cards
+  "returns all cards that would lengthen same rank pack or sequence pack of passed card in a passed hand"
   [hand card]
   (let [length-best-pack (count (find-best-pack-for-a-card hand card))
         longest-sequence (find-sequence-cards hand card)
         result []]
-    (if (= length-best-pack 4)
+    (if
+      (= length-best-pack 4)
       (conj
         (conj
           result
@@ -345,39 +338,34 @@
         (check-top-of-sequence-for-potential-card longest-sequence))
       (let
         [same-rank-pack (cons card (find-same-rank-different-suits hand card))]
-        (vec (concat
-               (conj
-                 (conj
-                   result
-                   (check-bottom-of-sequence-for-potential-card longest-sequence))
-                 (check-top-of-sequence-for-potential-card longest-sequence))
-               (check-same-rank-pack-for-potential-card same-rank-pack)))))))
+        (vec
+          (concat
+            (conj
+              (conj
+                result
+                (check-bottom-of-sequence-for-potential-card longest-sequence))
+              (check-top-of-sequence-for-potential-card longest-sequence))
+            (check-same-rank-pack-for-potential-card same-rank-pack)))))))
 
 (defn find-potential-useful-cards-for-pack
+  "returns all cards that would lengthen certain existing passed pack"
   [pack]
   (let [type-of-pack (type-of-pack pack)
         result []]
     (if
       (= type-of-pack "pack-in-a-row")
-      (vec (conj
-             (conj
-               result
-               (check-bottom-of-sequence-for-potential-card pack))
-             (check-top-of-sequence-for-potential-card pack)))
+      (vec
+        (conj
+          (conj
+            result
+            (check-bottom-of-sequence-for-potential-card pack))
+          (check-top-of-sequence-for-potential-card pack)))
       (if
         (= type-of-pack "pack-same-numbers")
         (vec (check-same-rank-pack-for-potential-card pack))))))
 
-(find-potential-useful-cards-for-pack
-  [#remi.Card{:rank 10, :suit :diamonds, :type :standard}
-   #remi.Card{:rank 10, :suit :spades, :type :standard}
-   #remi.Card{:rank 10, :suit :hearts, :type :standard}
-   ])
-
-(conj [] 1)
-(concat [1] [2])
-
 (defn ordered-vector-intersection
+  "returns intersection of 2 ordered vectors"
   [vec1 vec2]
   (let [set2 (set vec2)]
     (vec (filter #(set2 %) vec1))))
@@ -385,181 +373,219 @@
 
 
 (defn find-useful-cards
+  "returns all potential useful cards for passed card and passed hand that exist in passed remaining cards"
   [hand card remaining-cards]
   (let [potential-useful-cards (find-potential-useful-cards hand card)]
     (ordered-vector-intersection potential-useful-cards remaining-cards)))
 
 (defn find-useful-cards-for-pack
+  "returns all potential useful cards for passed pack that exist in passed remaining cards"
   [pack remaining-cards]
   (let [potential-useful-cards (find-potential-useful-cards-for-pack pack)]
     (ordered-vector-intersection potential-useful-cards remaining-cards)))
 
 (defn vector-difference
+  "returns difference of 2 vectors"
   [vec1 vec2]
-  (let [to-remove (frequencies vec2)                        ; Creates a map of elements to their counts in vec2
-        result (reduce (fn [[res counts] item]              ; Destructure the accumulator into res and counts
-                         (if (and (> (get counts item 0) 0) ; If item should be removed
+  (let [to-remove (frequencies vec2)
+        result (reduce (fn [[res counts] item]
+                         (if (and (> (get counts item 0) 0)
                                   (contains? counts item))
-                           [res (update counts item dec)]   ; Decrement count in map, keep result the same
-                           [(conj res item) counts]))       ; Else, add item to result
-                       [[] to-remove]                       ; Initial accumulator: empty result vector and to-remove map
+                           [res (update counts item dec)]
+                           [(conj res item) counts]))
+                       [[] to-remove]
                        vec1)]
     (first result)))
 
 
 (defn count-card-occurrences
+  "returns number of times passed card occurred in passed vector of cards"
   [cards card-to-count]
-  (count (filter #(= % card-to-count) cards)))
+  (count
+    (filter
+      #(= % card-to-count)
+      cards)))
 
 (defn sum-vector
+  "returns sum of vector"
   [vec]
   (reduce + 0 vec))
 
 (defn quality-of-a-pack
+  "returns quality of passed pack"
   [pack]
   (count pack))
 
 (defn find-strength-of-card
+  "returns strength of passed card based on current passed hand and chance of drawing useful cards"
   [hand card middle-pile]
   (let [remaining-cards (vector-difference (vector-difference (create-deck 4) middle-pile) hand)
         useful-cards (find-useful-cards hand card remaining-cards)
         current-best-pack (find-best-pack-for-a-card hand card)]
-    (+ (quality-of-a-pack current-best-pack)
-       (sum-vector (map
-                     #(let
-                        [new-best-pack (find-best-pack-for-a-card (conj hand %) card)]
-                        (if
-                          (> (quality-of-a-pack new-best-pack) (quality-of-a-pack current-best-pack))
-                          (*
-                            (quality-of-a-pack new-best-pack)
-                            (* (count-card-occurrences remaining-cards %) (/ 1 (count remaining-cards))))
-                          0)) useful-cards)))))
+    (+
+      (quality-of-a-pack current-best-pack)
+      (sum-vector
+        (map
+          #(let
+             [new-best-pack (find-best-pack-for-a-card (conj hand %) card)]
+             (if
+               (> (quality-of-a-pack new-best-pack) (quality-of-a-pack current-best-pack))
+               (*
+                 (quality-of-a-pack new-best-pack)
+                 (* (count-card-occurrences remaining-cards %) (/ 1 (count remaining-cards))))
+               0))
+          useful-cards)))))
 
 (defrecord Best-Pack [cards strength card])
 
 
 
 (defn find-strength-of-pack
+  "returns strength of passed pack based on current hand and chance of lengthening that pack based on passed taken cards"
   [hand card taken-cards]
   (let [remaining-cards (vector-difference (vector-difference (create-deck 4) taken-cards) hand)
         longest-sequence (find-sequence-cards hand card)
         longest-same-rank-pack (cons card (find-same-rank-different-suits hand card))
         useful-cards-sequence (find-useful-cards-for-pack longest-sequence remaining-cards)
         useful-cards-same-rank (find-useful-cards-for-pack longest-same-rank-pack remaining-cards)]
-
     (vector
-      (->Best-Pack longest-sequence (+
-                                      (quality-of-a-pack longest-sequence)
-                                      (sum-vector
-                                        (map
-                                          #(let
-                                             [new-best-pack (find-sequence-cards (conj hand %) card)]
-                                             (if
-                                               (> (quality-of-a-pack new-best-pack) (quality-of-a-pack longest-sequence))
-                                               (*
-                                                 (quality-of-a-pack new-best-pack)
-                                                 (* (count-card-occurrences remaining-cards %) (/ 1 (count remaining-cards))))
-                                               0)) useful-cards-sequence))) card)
-      (->Best-Pack longest-same-rank-pack (+
-                                            (quality-of-a-pack longest-same-rank-pack)
-                                            (sum-vector
-                                              (map
-                                                #(*
-                                                   (quality-of-a-pack (cons % longest-same-rank-pack))
-                                                   (* (count-card-occurrences remaining-cards %) (/ 1 (count remaining-cards))))
-                                                useful-cards-same-rank))) card))))
+      (->Best-Pack
+        longest-sequence
+        (+
+          (quality-of-a-pack longest-sequence)
+          (sum-vector
+            (map
+              #(let
+                 [new-best-pack (find-sequence-cards (conj hand %) card)]
+                 (if
+                   (> (quality-of-a-pack new-best-pack) (quality-of-a-pack longest-sequence))
+                   (*
+                     (quality-of-a-pack new-best-pack)
+                     (* (count-card-occurrences remaining-cards %) (/ 1 (count remaining-cards))))
+                   0))
+              useful-cards-sequence)))
+        card)
+      (->Best-Pack
+        longest-same-rank-pack
+        (+
+          (quality-of-a-pack longest-same-rank-pack)
+          (sum-vector
+            (map
+              #(*
+                 (quality-of-a-pack (cons % longest-same-rank-pack))
+                 (* (count-card-occurrences remaining-cards %) (/ 1 (count remaining-cards))))
+              useful-cards-same-rank)))
+        card))))
 
 (defn find-strength-of-whole-hand
+  "returns strength for each card in passed hand"
   [hand taken-cards]
   (map #(find-strength-of-pack hand % taken-cards) hand))
 
 (defn find-strength-of-some-cards
+  "returns strength of passed target cards in passed hand"
   [hand target-cards taken-cards]
   (map #(find-strength-of-pack hand % taken-cards) target-cards))
 
 (defn find-length-of-best-pack-for-hand
+  "returns length of best pack in passed hand"
   [hand]
   (map #(count (find-best-pack-for-a-card hand %)) hand))
 
 (defn find-strongest-pack-in-each-vector
+  "returns strongest pack in vector of Best-Packs"
   [packs-list]
-  (map (fn [pack-pair]                                      ; Each pack-pair is a vector with two packs
-         (if (> (:strength (first pack-pair)) (:strength (second pack-pair)))
-           (first pack-pair)
-           (second pack-pair)))
-       packs-list))
-
-(defn find-highest-strength-pack
-  [packs]                                                   ; Flatten the list of lists of packs
-  (reduce (fn [max-pack pack]
-            (if (> (:strength pack) (:strength max-pack))
-              pack
-              max-pack))
-          (first packs) packs))
+  (map
+    (fn [pack-pair]
+      (if
+        (> (:strength (first pack-pair)) (:strength (second pack-pair)))
+        (first pack-pair)
+        (second pack-pair)))
+    packs-list))
 
 (defn find-packs-with-common-cards
+  "returns packs from passed pack-list that have common cards with passed chosen-pack"
   [chosen-pack packs-list]
-  (let [chosen-cards (set (:cards chosen-pack))]            ; Create a set of cards from the chosen pack for quick lookup
-    (filter (fn [pack]
-              (not-empty (clojure.set/intersection chosen-cards (set (:cards pack))))) ; Check for common cards
-            packs-list)))
+  (let [chosen-cards (set (:cards chosen-pack))]
+    (filter
+      (fn [pack]
+        (not-empty (clojure.set/intersection chosen-cards (set (:cards pack))))) ; Check for common cards
+      packs-list)))
 
 (defn sort-cards-in-pack
+  "sorts cards inside passed pack"
   [pack]
   (update pack :cards #(sort-by (juxt :rank :suit) %)))
 
 
 (defn pack-contains?
+  "returns true if passed pack-list contains passed pack, otherwise returns false"
   [pack-list pack]
-  (some (fn [existing-pack]
-          (let [existing-cards (:cards (sort-cards-in-pack existing-pack))
-                new-cards (:cards (sort-cards-in-pack pack))]
-            (and (= existing-cards new-cards))))
-        pack-list))
+  (some
+    (fn [existing-pack]
+      (let [existing-cards (:cards (sort-cards-in-pack existing-pack))
+            new-cards (:cards (sort-cards-in-pack pack))]
+        (and (= existing-cards new-cards))))
+    pack-list))
 
 
 (defn add-unique-pack
+  "returns passed pack-list with addition of passed pack only if passed pack-list does not contain passed pack"
   [pack-list pack]
   (if (pack-contains? pack-list pack)
     pack-list
     (conj pack-list pack)))
 
 (defn collect-unique-packs
+  "Returns unique packs from the passed packs."
   [packs]
   (reduce add-unique-pack [] packs))
 
 (defn sum-strengths
+  "Returns the sum of strengths from a passed packs"
   [packs]
   (apply + (map :strength packs)))
 
 (defn find-highest-strength-pack
+  "Returns highest strength pack from passed packs"
   [packs]
-  (reduce (fn [max-pack current-pack]
-            (if (> (:strength current-pack) (:strength max-pack))
-              current-pack
-              max-pack))
-          packs))
+  (reduce
+    (fn [max-pack current-pack]
+      (if
+        (> (:strength current-pack) (:strength max-pack))
+        current-pack
+        max-pack))
+    packs))
 
 
 (defn find-next-best-pack-in-a-hand
+  "Returns best pack in passed hand or part of the hand based on strength and its impact on strength of other cards"
   [hand taken-cards]
   (let [strength-of-whole-hand (find-strength-of-whole-hand hand taken-cards)
         strongest-pack-in-each-vector (find-strongest-pack-in-each-vector strength-of-whole-hand)
         highest-strength-pack (find-highest-strength-pack strongest-pack-in-each-vector)
         packs-common-cards (find-packs-with-common-cards highest-strength-pack strongest-pack-in-each-vector)
         unique-packs-common-cards (collect-unique-packs packs-common-cards)]
-    (find-highest-strength-pack (map
-                                  (fn [x]
-                                    (->Best-Pack (:cards x) (+ (* (count (:cards x)) (:strength x)) (sum-strengths (vec (find-strongest-pack-in-each-vector
-                                                                                                                          (find-strength-of-some-cards
-                                                                                                                            (vector-difference hand (:cards x))
-                                                                                                                            (vector-difference (map #(:card %) packs-common-cards) (:cards x))
-                                                                                                                            (concat taken-cards (:cards x))
-                                                                                                                            ))))) nil))
-                                  unique-packs-common-cards))))
+    (find-highest-strength-pack
+      (map
+        (fn [x]
+          (->Best-Pack
+            (:cards x)
+            (+
+              (* (count (:cards x)) (:strength x))
+              (sum-strengths
+                (vec
+                  (find-strongest-pack-in-each-vector
+                    (find-strength-of-some-cards
+                      (vector-difference hand (:cards x))
+                      (vector-difference (map #(:card %) packs-common-cards) (:cards x))
+                      (concat taken-cards (:cards x)))))))
+            nil))
+        unique-packs-common-cards))))
 
 
 (defn find-worst-card-in-a-hand
+  "Returns worst card in passed hand by finding next best pack in the hand recursively until left with worst card in the hand"
   [hand taken-cards]
   (loop [current-hand hand
          current-taken-cards taken-cards]

@@ -72,6 +72,7 @@
         )
       (remi/check-pack @(:hand player) pack-cards))))
 
+TAKEN-CARDS SU REDNI BROJEVI KARATA A NE KARTE. SREDITI TO.
 (defn handle-drop-card-menu
   [player choice sum taken-cards]
   (case choice
@@ -84,7 +85,7 @@
           ))
     2 (do
         (if (> sum 50)
-
+          (swap! (:hand player) #(remi/vector-difference % (vec taken-cards)))
           (println "Your sum needs to be at least 51")))
     3 (do
         )
@@ -107,7 +108,7 @@
         (println "What is the place of card that you want to drop?")
         (remi/drop-card player
                         (loop [] (let [choice (get-choice)]
-                                   (if (and (< choice 16) (> choice 0)) (- choice 1) (recur))))
+                                   (if (and (< choice 16) (> choice 0)) choice (recur))))
                         )
         (println "\n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n
         \n \n \n \n \n \n \n \n \n \n \n Insert anything to start your turn:")
