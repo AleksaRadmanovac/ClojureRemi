@@ -35,7 +35,7 @@
     (swap! deck #(drop num-cards %))
     hand))
 
-(defrecord Player [name hand])
+(defrecord Player [name hand opened])
 
 (defn make-players
   "makes passed number of players and gives them 14 card each from passed deck"
@@ -44,7 +44,7 @@
     (for [n (range number-of-players)]
       (let [player-name (str "player" (inc n))
             player-hand (atom (deal-hand 14 deck))]
-        (->Player player-name player-hand)))))
+        (->Player player-name player-hand (atom 0))))))
 
 (defn get-player
   "returns nth player from passed players"
@@ -590,8 +590,16 @@
   (loop [current-hand hand
          current-taken-cards taken-cards]
     (let [next-best-pack (find-next-best-pack-in-a-hand current-hand current-taken-cards)]
-      (println "Next best pack:" next-best-pack)
       (if (empty? (vector-difference current-hand (:cards next-best-pack)))
         next-best-pack
         (recur (vector-difference current-hand (:cards next-best-pack))
                (concat current-taken-cards (:cards next-best-pack)))))))
+
+(defn get-recommendation
+  "Returns what card should you drop calculated by algorithm above"
+  [hand]
+  (find-worst-card-in-a-hand hand @middle-pile))
+
+(defn reset-middle-pile
+  []
+  (reset! middle-pile []))

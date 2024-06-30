@@ -15,13 +15,12 @@
       nil)))
 
 (defn display-turn-options [player]
-  (remi/draw-from-deck player deck)
   (println (str (:name player) "'s turn, your hand:"))
   (show-hand (:hand player))
   (println "")
-  (println "1) Drop Card")
+  (println "1) Drop single card and end turn")
   (println "2) Open")
-  (println "3) Exit"))
+  (println "3) Get recommendation"))
 
 (defn get-choice []
   (print "Enter your choice: ")
@@ -40,15 +39,18 @@
     (do
       (def deck (atom (shuffle (remi/create-deck choice))))
       (def players (remi/make-players choice deck))
+      (remi/reset-middle-pile)
       (loop []
         (doseq [player players]
+          (remi/draw-from-deck player deck)
           (handle-turn player))
         (recur)))))
 
 (defn show-hand
   [hand]
   (doseq [[idx card] (map-indexed vector @hand)]
-    (if (= (:type card) :joker)
+    (if
+      (= (:type card) :joker)
       (println (str idx ". Joker"))
       (println (str idx ". " (:rank card) " of " (:suit card))))))
 
@@ -72,21 +74,39 @@
         )
       (remi/check-pack @(:hand player) pack-cards))))
 
-TAKEN-CARDS SU REDNI BROJEVI KARATA A NE KARTE. SREDITI TO.
+(defn get-cards-at-positions
+  "Returns cards from the given list at the specified positions."
+  [card-list positions]
+  (map #(nth card-list %) positions))
+
 (defn handle-drop-card-menu
   [player choice sum taken-cards]
   (case choice
     1 (do
         (println "What cards do you want in a pack(Insert place of cards separated by spaces):")
         (let [choice (get-choice-string) pack-value (handle-pack-choice player choice taken-cards)]
-          (if (> pack-value 0)
-            (drop-card-menu player (+ sum pack-value) (vec (concat taken-cards (string-to-number-vector choice))))
-            (drop-card-menu player (+ sum pack-value) taken-cards))
-          ))
-    2 (do
-        (if (> sum 50)
-          (swap! (:hand player) #(remi/vector-difference % (vec taken-cards)))
-          (println "Your sum needs to be at least 51")))
+          (if
+            (> pack-value 0)
+            (if
+              (< (count taken-cards) (count @(:hand player)))
+              (drop-card-menu player (+ sum pack-value) (vec (concat taken-cards (string-to-number-vector choice))))
+              (do
+                (println "You must have at least 1 card left in your hand before ending turn")
+                (drop-card-menu player (+ sum pack-value) taken-cards)))
+            (drop-card-menu player (+ sum pack-value) taken-cards))))
+    2 (if
+        (= 0 (count taken-cards))
+        (println "you cant drop nothing")
+        (if
+        (= (:opened player) 0)
+        (do
+          (if
+            (> sum 50)
+            (do
+              (swap! (:hand player) #(remi/vector-difference % (vec (get-cards-at-positions @(:hand player) taken-cards))))
+                (swap! (:opened player) #(+ % 1)))
+            (println "Your sum needs to be at least 51")))
+        ((swap! (:hand player) #(remi/vector-difference % (vec (get-cards-at-positions @(:hand player) taken-cards)))))))
     3 (do
         )
     (println "Invalid choice. Please try again.")))
@@ -108,17 +128,21 @@ TAKEN-CARDS SU REDNI BROJEVI KARATA A NE KARTE. SREDITI TO.
         (println "What is the place of card that you want to drop?")
         (remi/drop-card player
                         (loop [] (let [choice (get-choice)]
-                                   (if (and (< choice 16) (> choice 0)) choice (recur))))
+                                   (if (and (< choice 15) (> choice -1)) choice (recur))))
                         )
-        (println "\n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n
+        (if
+          (= 0 (count @(:hand player)))
+          ("YOU WIN!!!")
+          (do
+            (println "\n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n
         \n \n \n \n \n \n \n \n \n \n \n Insert anything to start your turn:")
-        (get-choice)
-        )
+            (get-choice))))
     2 (do
         (drop-card-menu player 0 [])
-        )
+        (handle-turn player))
     3 (do
-        (println "Exiting..."))
+        (println (remi/get-recommendation @(:hand player)))
+        (handle-turn-choice player (get-choice )))
     (println "Invalid choice. Please try again.")))
 
 
